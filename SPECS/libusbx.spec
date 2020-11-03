@@ -1,12 +1,27 @@
 Summary:        Library for accessing USB devices
 Name:           libusbx
-Version:        1.0.22
-Release:        1%{?dist}
+Version:        1.0.23
+Release:        4%{?dist}
 # upstream libusbx has merged back with libusb and is now called libusb again
 # but we already have a libusb package for the old libusb-compat-0.1, renaming
 # that to libusb-compat while at the same time giving this its name is a bit
 # tricky, lets stick with the libusbx name for now
 Source0:        https://github.com/libusb/libusb/archive/v%{version}/libusb-%{version}.tar.gz
+Patch0001:      0001-fix-constant-not-in-range-of-enumerated-type.patch
+Patch0002:      0002-Doxygen-add-libusb_wrap_sys_device-in-the-API-list.patch
+Patch0003:      0003-Linux-backend-fix-ressource-leak.patch
+Patch0004:      0004-Linux-Improved-system-out-of-memory-handling.patch
+Patch0005:      0005-linux_udev-silently-ignore-bind-action.patch
+Patch0006:      0006-Add-Null-POSIX-backend.patch
+Patch0007:      0007-core-fix-build-warning-on-newer-versions-of-gcc.patch
+Patch0008:      0008-core-Fix-libusb_get_max_iso_packet_size-for-superspe.patch
+Patch0009:      0009-core-Do-not-attempt-to-destroy-a-default-context-tha.patch
+Patch0010:      0010-linux_usbfs-Wait-until-all-URBs-have-been-reaped-bef.patch
+
+# Downstream only - a simple fix for a covscan issue.
+Patch1000:      1000-Downstream-fix-covscan-issue-close-fd-called-twice.patch
+
+
 License:        LGPLv2+
 Group:          System Environment/Libraries
 URL:            http://libusb.info
@@ -49,8 +64,17 @@ BuildArch:      noarch
 This package contains API documentation for %{name}.
 
 
+%package        tests-examples
+Summary:        Tests and examples for %{name}
+Requires:       %{name}%{?_isa} = %{version}-%{release}
+
+%description tests-examples
+This package contains tests and examples for %{name}.
+
+
 %prep
-%setup -q -n libusb-%{version}
+%autosetup -S git_am -n libusb-%{version}
+chmod -x examples/*.c
 mkdir -p m4
 autoreconf -ivf
 
@@ -61,11 +85,31 @@ make %{?_smp_mflags}
 pushd doc
 make docs
 popd
+pushd tests
+make
+popd
 
 
 %install
 %make_install
+mkdir -p $RPM_BUILD_ROOT%{_bindir}
+install -m 755 tests/.libs/stress $RPM_BUILD_ROOT%{_bindir}/libusb-test-stress
+install -m 755 examples/.libs/testlibusb \
+    $RPM_BUILD_ROOT%{_bindir}/libusb-test-libusb
+# Some examples are very device-specific / require specific hw and miss --help
+# So we only install a subset of more generic / useful examples
+for i in fxload listdevs xusb; do
+    install -m 755 examples/.libs/$i \
+        $RPM_BUILD_ROOT%{_bindir}/libusb-example-$i
+done
 rm $RPM_BUILD_ROOT%{_libdir}/*.la
+
+
+%check
+LD_LIBRARY_PATH=libusb/.libs ldd $RPM_BUILD_ROOT%{_bindir}/libusb-test-stress
+LD_LIBRARY_PATH=libusb/.libs $RPM_BUILD_ROOT%{_bindir}/libusb-test-stress
+LD_LIBRARY_PATH=libusb/.libs $RPM_BUILD_ROOT%{_bindir}/libusb-test-libusb
+LD_LIBRARY_PATH=libusb/.libs $RPM_BUILD_ROOT%{_bindir}/libusb-example-listdevs
 
 
 %ldconfig_scriptlets
@@ -73,7 +117,7 @@ rm $RPM_BUILD_ROOT%{_libdir}/*.la
 
 %files
 %license COPYING
-%doc AUTHORS README ChangeLog
+%doc AUTHORS README.md ChangeLog
 %{_libdir}/*.so.*
 
 %files devel
@@ -84,8 +128,35 @@ rm $RPM_BUILD_ROOT%{_libdir}/*.la
 %files devel-doc
 %doc doc/html examples/*.c
 
+%files tests-examples
+%{_bindir}/libusb-example-fxload
+%{_bindir}/libusb-example-listdevs
+%{_bindir}/libusb-example-xusb
+%{_bindir}/libusb-test-stress
+%{_bindir}/libusb-test-libusb
+
 
 %changelog
+* Wed Aug 12 2020 Victor Toso <victortoso@redhat.com> - 1.0.23-4
+- Install README.md as README is only a symlink to .md
+  Resolves: rhbz#1849682
+
+* Fri Jun 26 2020 Uri Lublin <uril@redhat.com> - 1.0.23-3
+- Fix covscan warning
+  Related: rhbz#1825941
+
+* Thu May 14 2020 Victor Toso <victortoso@redhat.com> - 1.0.23-2
+- Cherry pick a few fixes since 1.0.23 release
+- Related: rhbz#1825941
+
+* Tue May 05 2020 Victor Toso <victortoso@redhat.com> - 1.0.23-1
+- Update to 1.0.23
+- Resolves: rhbz#1825941
+
+* Mon Feb 17 2020 Hans de Goede <hdegoede@redhat.com> - 1.0.22-2
+- Add tests-examples subpackage for use by gating tests
+- Resolves: rhbz#1681769
+
 * Wed Aug 22 2018 Victor Toso <victortoso@redhat.com> - 1.0.22-1
 - Update to 1.0.22
 - Resolves: rhbz#1620092
