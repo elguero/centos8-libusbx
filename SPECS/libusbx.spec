@@ -25,7 +25,7 @@ Patch1000:      1000-Downstream-fix-covscan-issue-close-fd-called-twice.patch
 License:        LGPLv2+
 Group:          System Environment/Libraries
 URL:            http://libusb.info
-BuildRequires:  systemd-devel doxygen libtool
+BuildRequires:  systemd-devel doxygen libtool git-core
 Provides:       libusb1 = %{version}-%{release}
 Obsoletes:      libusb1 <= 1.0.9
 
